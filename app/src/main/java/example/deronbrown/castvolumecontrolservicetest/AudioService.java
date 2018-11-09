@@ -190,9 +190,11 @@ public class AudioService extends MediaBrowserServiceCompat
                     .setMetadata(convertMetadata())
                     .build();
             castPlayer.loadItem(new MediaQueueItem.Builder(info).build(), positionMs);
+            setMediaSessionActive(false);
         } else {
             currentPlayer.seekTo(itemIndex, positionMs);
             currentPlayer.setPlayWhenReady(playWhenReady);
+            setMediaSessionActive(true);
         }
     }
 
@@ -264,9 +266,11 @@ public class AudioService extends MediaBrowserServiceCompat
             mainMediaSource = new ExtractorMediaSource.Factory(dataSourceFactory).createMediaSource(Uri.parse("https://html5demos.com/assets/dizzy.mp4"));
             if (currentPlayer == exoPlayer) {
                 exoPlayer.prepare(mainMediaSource);
+                setMediaSessionActive(true);
             } else {
                 castMediaQueueCreationPending = true;
                 setCurrentItem(C.INDEX_UNSET, 0, exoPlayer.getPlayWhenReady());
+                setMediaSessionActive(false);
             }
         }
     }
@@ -274,6 +278,14 @@ public class AudioService extends MediaBrowserServiceCompat
     private void setupCastListeners() {
         castPlayer.addListener(eventListener);
         castPlayer.setSessionAvailabilityListener(this);
+    }
+
+    // An active MediaSession will handle volume controls. When CastPlayer is playing,
+    // we can allow receiver volume control by setting the MediaSession to inactive
+    private void setMediaSessionActive(boolean active) {
+        if (mediaSessionCompat.isActive() != active) {
+            mediaSessionCompat.setActive(active);
+        }
     }
 
     private class PlaybackPreparer implements MediaSessionConnector.PlaybackPreparer {
@@ -291,10 +303,6 @@ public class AudioService extends MediaBrowserServiceCompat
         public void onPrepareFromMediaId(String mediaId, Bundle extras) {
             mediaSessionCompat.setMetadata(getMediaSessionMetadata());
             prepareMediaSource();
-
-            if (!mediaSessionCompat.isActive()) {
-                mediaSessionCompat.setActive(true);
-            }
         }
 
         @Override
